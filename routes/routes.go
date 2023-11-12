@@ -2,26 +2,21 @@ package routes
 
 import (
 	"rasatria01/e-perpus/controllers"
+	"rasatria01/e-perpus/utils"
 
 	"github.com/gorilla/mux"
 )
 
-func SetupRouter() *mux.Router {
+func SetupRoutes() *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/login", controllers.Login).Methods("POST")
-
-	adminAuthMiddleware := controllers.Authenticate(controllers.AdminAccess, "admin")
-	router.Handle("/admin/books", adminAuthMiddleware).Methods("GET")
-
-	// Routes with librarian access
-	librarianAuthMiddleware := controllers.Authenticate(controllers.LibrarianAccess, "librarian")
-	router.Handle("/librarian/books", librarianAuthMiddleware).Methods("GET", "POST")
-
-	// Routes with member access
-	memberAuthMiddleware := controllers.Authenticate(controllers.MemberAccess, "member")
-	router.Handle("/member/books", memberAuthMiddleware).Methods("GET")
+	router.Use(utils.LoggerMiddleware)
+	// Books routes
+	router.HandleFunc("/v1/books", controllers.GetBooks).Methods("GET")
+	router.HandleFunc("/v1/books/{id}", controllers.GetBook).Methods("GET")
+	router.HandleFunc("/v1/books", controllers.CreateBook).Methods("POST")
+	router.HandleFunc("/v1/books/{id}", controllers.UpdateBook).Methods("PUT")
+	router.HandleFunc("/v1/books/{id}", controllers.DeleteBook).Methods("DELETE")
 
 	return router
-
 }

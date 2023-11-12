@@ -2,111 +2,84 @@ package controllers
 
 import (
 	"encoding/json"
-	"net/http"
 	"rasatria01/e-perpus/models"
 	"rasatria01/e-perpus/utils"
-	"sync"
+
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-var (
-	books     = make(map[string]models.Book)
-	booksLock sync.RWMutex
-)
+var books []models.Book
 
-func GetAllBooks(w http.ResponseWriter, r *http.Request) {
-	booksLock.RLock()
-	defer booksLock.RUnlock()
+// GetBooks returns the list of all books
+func GetBooks(w http.ResponseWriter, r *http.Request) {
+	utils.ResponseJSON(w, http.StatusOK, books)
+}
 
-	bookList := make([]models.Book, 0, len(books))
+// GetBook returns a single book by ID
+func GetBook(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bookID := vars["id"]
+
 	for _, book := range books {
-		bookList = append(bookList, book)
+		if book.ID == bookID {
+			utils.ResponseJSON(w, http.StatusOK, book)
+			return
+		}
 	}
-
-	utils.JsonResponse(w, http.StatusOK, bookList)
+	utils.ResponseError(w, http.StatusNotFound, "Book not found")
 }
 
-func GetBookByID(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	bookID := params["id"]
-
-	booksLock.RLock()
-	defer booksLock.RUnlock()
-
-	book, found := books[bookID]
-
-	if !found {
-		utils.JsonError(w, http.StatusNotFound, "Book not found")
-		return
-	}
-
-	utils.JsonResponse(w, http.StatusOK, book)
-}
-
+// CreateBook adds a new book to the collection
 func CreateBook(w http.ResponseWriter, r *http.Request) {
 	var newBook models.Book
-
 	err := json.NewDecoder(r.Body).Decode(&newBook)
 
 	if err != nil {
-		utils.JsonError(w, http.StatusBadRequest, "Invalid request Payload")
+		utils.ResponseError(w, http.StatusBadRequest, "Invalid request Payload")
 		return
 	}
+	// Assign a unique ID (you may want to use a more robust ID generation mechanism)
+	newBook.ID = uuid.New().String() // Replace with a proper ID assignment logic
 
-	newBook.ID = uuid.New().String()
+	books = append(books, newBook)
 
-	booksLock.Lock()
-	defer booksLock.Unlock()
-
-	books[newBook.ID] = newBook
-
-	utils.JsonResponse(w, http.StatusCreated, newBook)
+	utils.ResponseJSON(w, http.StatusCreated, newBook)
 }
 
+// UpdateBook updates an existing book by ID
 func UpdateBook(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	bookID := params["id"]
+	vars := mux.Vars(r)
+	bookID := vars["id"]
 
-	booksLock.Lock()
-	defer booksLock.Unlock()
+	var updatedBook models.Book
+	json.NewDecoder(r.Body).Decode(&updatedBook)
 
-	_, found := books[bookID]
-	if !found {
-		utils.JsonError(w, http.StatusNotFound, "Book not found")
-		return
+	for i, book := range books {
+		if book.ID == bookID {
+			updatedBook.ID = book.ID
+			books[i] = updatedBook
+			utils.ResponseJSON(w, http.StatusOK, updatedBook)
+			return
+		}
 	}
-
-	var UpdateBook models.Book
-
-	err := json.NewDecoder(r.Body).Decode((&UpdateBook))
-
-	if err != nil {
-		utils.JsonError(w, http.StatusBadRequest, "Invalid Request Payload")
-		return
-	}
-
-	UpdateBook.ID = bookID
-	books[bookID] = UpdateBook
-	utils.JsonResponse(w, http.StatusOK, UpdateBook)
-
+	utils.ResponseError(w, http.StatusNotFound, "Book not Found")
 }
 
+// DeleteBook removes a book from the collection by ID
 func DeleteBook(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	bookID := params["id"]
+	vars := mux.Vars(r)
+	bookID := vars["id"]
 
-	booksLock.Lock()
-	defer booksLock.Unlock()
-
-	_, found := books[bookID]
-	if !found {
-		utils.JsonError(w, http.StatusNotFound, "Book not found")
-		return
+	for i, book := range books {
+		if book.ID == bookID {
+			// Remove the book from the slice
+			books = append(books[:i], books[i+1:]...)
+			utils.ResponseJSON(w, http.StatusNoContent, nil)
+			return
+		}
 	}
-
-	delete(books, bookID)
-
-	utils.JsonResponse(w, http.StatusOK, map[string]string{"message": "Book deleted successfully"})
+	utils.ResponseError(w, http.StatusNotFound, "Book not Found")
 }
