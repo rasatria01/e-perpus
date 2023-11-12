@@ -9,11 +9,18 @@ import (
 func SetupRouter() *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/books", controllers.GetAllBooks).Methods("GET")
-	router.HandleFunc("/books/{id}", controllers.GetBookByID).Methods("GET")
-	router.HandleFunc("/books", controllers.CreateBook).Methods("POST")
-	router.HandleFunc("/books/{id}", controllers.UpdateBook).Methods("PUT")
-	router.HandleFunc("/books/{id}", controllers.DeleteBook).Methods("DELETE")
+	router.HandleFunc("/login", controllers.Login).Methods("POST")
+
+	adminAuthMiddleware := controllers.Authenticate(controllers.AdminAccess, "admin")
+	router.Handle("/admin/books", adminAuthMiddleware).Methods("GET")
+
+	// Routes with librarian access
+	librarianAuthMiddleware := controllers.Authenticate(controllers.LibrarianAccess, "librarian")
+	router.Handle("/librarian/books", librarianAuthMiddleware).Methods("GET", "POST")
+
+	// Routes with member access
+	memberAuthMiddleware := controllers.Authenticate(controllers.MemberAccess, "member")
+	router.Handle("/member/books", memberAuthMiddleware).Methods("GET")
 
 	return router
 
